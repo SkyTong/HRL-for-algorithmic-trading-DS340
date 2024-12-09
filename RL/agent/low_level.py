@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--buffer_size",type=int,default=1000000,)
 parser.add_argument("--dataset",type=str,default="ETHUSDT")
 parser.add_argument("--q_value_memorize_freq",type=int, default=10,)
-parser.add_argument("--batch_size",type=int,default=512)
+parser.add_argument("--batch_size",type=int,default=256)
 parser.add_argument("--eval_update_freq",type=int,default=100)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--epsilon_start",type=float,default=0.5)
@@ -70,6 +70,7 @@ class DQN(object):
     def __init__(self, args):  # 定义DQN的一系列属性
         self.seed = args.seed
         seed_torch(self.seed)
+        print(args.label)
         if torch.cuda.is_available():
             self.device = torch.device(args.device)
         else:
@@ -79,12 +80,9 @@ class DQN(object):
         self.label = int(args.label.split('_')[1])
         self.model_path = os.path.join(self.result_path,
                                        "seed_{}".format(self.seed))
-        self.train_data_path = os.path.join(ROOT,
-                                        "data", args.dataset, "train")
-        self.val_data_path = os.path.join(ROOT,
-                                        "data", args.dataset, "val")
-        self.test_data_path = os.path.join(ROOT,
-                                        "data", args.dataset, "test")
+        self.train_data_path = "E:\\DS340\\MacroHFT\\data\\ETHUSDT\\train"
+        self.val_data_path = "E:\\DS340\\MacroHFT\\data\\ETHUSDT\\val"
+        self.test_data_path = "E:\\DS340\\MacroHFT\\data\\ETHUSDT\\test"
         if args.clf == 'slope':
             with open(os.path.join(self.train_data_path, 'slope_labels.pkl'), 'rb') as file:
                 self.train_index = pickle.load(file)
@@ -99,6 +97,7 @@ class DQN(object):
                 self.val_index = pickle.load(file)
             with open(os.path.join(self.test_data_path, 'vol_labels.pkl'), 'rb') as file:
                 self.test_index = pickle.load(file)
+        print(self.train_index)
 
 
         self.dataset=args.dataset
@@ -125,8 +124,8 @@ class DQN(object):
         if not os.path.exists(self.model_path):
             os.makedirs(self.model_path)
 
-        self.tech_indicator_list = np.load('./data/feature_list/single_features.npy', allow_pickle=True).tolist()
-        self.tech_indicator_list_trend = np.load('./data/feature_list/trend_features.npy', allow_pickle=True).tolist()
+        self.tech_indicator_list = np.load('E:\\DS340\\MacroHFT\\data\\feature_list\\single_features.npy', allow_pickle=True).tolist()
+        self.tech_indicator_list_trend = np.load('E:\\DS340\\MacroHFT\\data\\feature_list\\trend_features.npy', allow_pickle=True).tolist()
 
         self.transcation_cost = args.transcation_cost
         self.back_time_length = args.back_time_length
@@ -352,22 +351,38 @@ class DQN(object):
                 os.makedirs(epoch_path)
             torch.save(self.eval_net.state_dict(),
                         os.path.join(epoch_path, "trained_model.pkl"))
+            print(3)
+            print(best_return_rate)
+
             val_path = os.path.join(epoch_path, "val")
             if not os.path.exists(val_path):
                     os.makedirs(val_path)
             return_rate_0 = self.val_cluster(epoch_path, val_path, 0)
             return_rate_1 = self.val_cluster(epoch_path, val_path, 1)
             return_rate_eval = (return_rate_0 + return_rate_1) / 2
+            print(return_rate_eval)
             if return_rate_eval > best_return_rate:
                 best_return_rate = return_rate_eval
+                print(1)
                 best_model = self.eval_net.state_dict()
             epoch_return_rate_train_list = []
             epoch_final_balance_train_list = []
             epoch_required_money_train_list = []
             epoch_reward_sum_train_list = []
-        best_model_path = os.path.join("./result/low_level", 
-                                        '{}'.format(self.dataset), '{}'.format(self.clf), self.label, 'best_model.pkl')
-        torch.save(best_model.state_dict(), best_model_path)
+        best_model_path = os.path.join(
+            "./result/low_level",
+            str(self.dataset),  # Ensure it's a string
+            str(self.clf),  # Ensure it's a string
+            str(self.label),  # Convert self.label to string if it's an int
+            'best_model.pkl'
+        )
+        # Ensure that the directory exists
+        best_model_dir = os.path.dirname(best_model_path)
+        os.makedirs(best_model_dir, exist_ok=True)
+
+        # Save the best model
+        torch.save(best_model, best_model_path)
+        print(2)
 
 
     def val_cluster(self, epoch_path, save_path, initial_action):

@@ -1,0 +1,12 @@
+2024-12-01 09:58:10.259112: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2024-12-01 09:58:10.934733: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+Namespace(buffer_size=100000, dataset='ETHUSDT', q_value_memorize_freq=10, batch_size=2048, eval_update_freq=512, lr=0.0001, epsilon_start=0.7, epsilon_end=0.3, decay_length=5, update_times=10, gamma=0.99, tau=0.005, transcation_cost=0.0002, back_time_length=1, seed=12345, n_step=1, epoch_number=4, device='cuda:0', alpha=0.5, beta=5, exp='exp1', num_step=10)
+epoch  1
+1000 / 525239
+2000 / 525239
+3000 / 525239
+4000 / 525239
+5000 / 525239
+6000 / 525239
+7000 / 525239
+8000 / 525239

@@ -17,11 +17,11 @@ ROOT = str(pathlib.Path(__file__).resolve().parents[3])
 sys.path.append(ROOT)
 sys.path.insert(0, ".")
 
-from minute.model.net import *
-from minute.env.high_level_env import Testing_Env, Training_Env
-from minute.RL.util.utili import get_ada, get_epsilon, LinearDecaySchedule
-from minute.RL.util.replay_buffer import ReplayBuffer_High
-from minute.RL.util.memory import episodicmemory
+from MacroHFT.model.net import *
+from MacroHFT.env.high_level_env import Testing_Env, Training_Env
+from MacroHFT.RL.util.utili import get_ada, get_epsilon, LinearDecaySchedule
+from MacroHFT.RL.util.replay_buffer import ReplayBuffer_High
+from MacroHFT.RL.util.memory import episodicmemory
 
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -29,10 +29,10 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["F_ENABLE_ONEDNN_OPTS"] = "0"
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--buffer_size",type=int,default=1000000,)
+parser.add_argument("--buffer_size",type=int,default=100000,)
 parser.add_argument("--dataset",type=str,default="ETHUSDT")
 parser.add_argument("--q_value_memorize_freq",type=int, default=10,)
-parser.add_argument("--batch_size",type=int,default=512)
+parser.add_argument("--batch_size",type=int,default=2048)
 parser.add_argument("--eval_update_freq",type=int,default=512)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--epsilon_start",type=float,default=0.7)
@@ -45,7 +45,7 @@ parser.add_argument("--transcation_cost",type=float,default=0.2 / 1000)
 parser.add_argument("--back_time_length",type=int,default=1)
 parser.add_argument("--seed",type=int,default=12345)
 parser.add_argument("--n_step",type=int,default=1)
-parser.add_argument("--epoch_number",type=int,default=15)
+parser.add_argument("--epoch_number",type=int,default=4)
 parser.add_argument("--device",type=str,default="cuda:0")
 parser.add_argument("--alpha",type=float,default=0.5)
 parser.add_argument("--beta",type=int,default=5)
@@ -75,12 +75,9 @@ class DQN(object):
         self.result_path = os.path.join("./result/high_level", '{}'.format(args.dataset), args.exp)
         self.model_path = os.path.join(self.result_path,
                                        "seed_{}".format(self.seed))
-        self.train_data_path = os.path.join(ROOT,
-                                        "data", args.dataset, "whole")
-        self.val_data_path = os.path.join(ROOT,
-                                        "data", args.dataset, "whole")
-        self.test_data_path = os.path.join(ROOT,
-                                        "data", args.dataset, "whole")
+        self.train_data_path = "E:\\DS340\\MacroHFT\\data\\ETHUSDT\\whole"
+        self.val_data_path = "E:\\DS340\\MacroHFT\\data\\ETHUSDT\\whole"
+        self.test_data_path = "E:\\DS340\\MacroHFT\\data\\ETHUSDT\\whole"
         self.dataset=args.dataset
         self.num_step = args.num_step
         if "BTC" in self.dataset:
@@ -105,8 +102,8 @@ class DQN(object):
         if not os.path.exists(self.model_path):
             os.makedirs(self.model_path)
 
-        self.tech_indicator_list = np.load('./data/feature_list/single_features.npy', allow_pickle=True).tolist()
-        self.tech_indicator_list_trend = np.load('./data/feature_list/trend_features.npy', allow_pickle=True).tolist()
+        self.tech_indicator_list = np.load('E:/DS340/MacroHFT/data/feature_list/single_features.npy', allow_pickle=True).tolist()
+        self.tech_indicator_list_trend = np.load('E:/DS340/MacroHFT/data/feature_list/trend_features.npy', allow_pickle=True).tolist()
         self.clf_list = ['slope_360', 'vol_360']
 
         self.transcation_cost = args.transcation_cost
@@ -127,7 +124,7 @@ class DQN(object):
         self.vol_3 = subagent(
             self.n_state_1, self.n_state_2, self.n_action, 64).to(self.device)        
         model_list_slope = [
-            "./result/low_level/ETHUSDT/slope/1/best_model.pkl", 
+            "./result/low_level/ETHUSDT/slope/1/best_model.pkl",
             "./result/low_level/ETHUSDT/slope/2/best_model.pkl",
             "./result/low_level/ETHUSDT/slope/3/best_model.pkl"
         ]
@@ -339,8 +336,7 @@ class DQN(object):
             print('epoch ', epoch_counter + 1)
             self.df = pd.read_feather(
                 os.path.join(self.train_data_path, "train.feather"))
-            
-            
+
             train_env = Training_Env(
                     df=self.df,
                     tech_indicator_list=self.tech_indicator_list,
@@ -353,8 +349,9 @@ class DQN(object):
                     alpha = 0)
             s, s2, s3, info = train_env.reset()
             episode_reward_sum = 0
-            
+            #max_steps_per_episode = 1000  # Set a reasonable maximum
             while True:
+                #print(step_counter)
                 a = self.act(s, s2, s3, info)
                 s_, s2_, s3_, r, done, info_ = train_env.step(a)
                 hs = self.calculate_hidden(s, s2, info)
@@ -401,9 +398,11 @@ class DQN(object):
                                 walltime=None)
                     if step_counter > 4320:
                         self.memory.re_encode(self.hyperagent)
+                        #print('re_encode')
                 if done:
                     break
             episode_counter += 1
+            print('episode', episode_counter)
             final_balance, required_money = train_env.final_balance, train_env.required_money
             self.writer.add_scalar(tag="return_rate_train",
                                 scalar_value=final_balance / (required_money),
@@ -469,15 +468,19 @@ class DQN(object):
             return_rate_eval = self.val_cluster(epoch_path, val_path)
             if return_rate_eval > best_return_rate:
                 best_return_rate = return_rate_eval
+                print('best return rate',best_return_rate)
                 best_model = self.hyperagent.state_dict()
             epoch_return_rate_train_list = []
             epoch_final_balance_train_list = []
             epoch_required_money_train_list = []
             epoch_reward_sum_train_list = []
-        best_model_path = os.path.join("./result/high_level", 
-                                        '{}'.format(self.dataset), 'best_model.pkl')
-        torch.save(best_model.state_dict(), best_model_path)
-        final_result_path = os.path.join("./result/high_level", '{}'.format(self.dataset))
+        best_model_path = os.path.join("./result/high_level",
+                                        str(self.dataset), 'best_model.pkl')
+        # Ensure that the directory exists
+        best_model_dir = os.path.dirname(best_model_path)
+        os.makedirs(best_model_dir, exist_ok=True)
+        torch.save(best_model, best_model_path)
+        final_result_path = os.path.join("./result/high_level", str(self.dataset))
         self.test_cluster(best_model_path, final_result_path)
 
 
@@ -539,7 +542,7 @@ class DQN(object):
 
     def test_cluster(self, epoch_path, save_path):
         self.hyperagent.load_state_dict(
-            torch.load(os.path.join(epoch_path, "trained_model.pkl")))
+            torch.load(os.path.join(epoch_path)))
         self.hyperagent.eval()
         counter = False
         action_list = []
